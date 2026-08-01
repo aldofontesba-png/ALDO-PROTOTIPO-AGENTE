@@ -22,10 +22,20 @@
     padding:24px 12px;
   }
   header{
-    max-width:520px;
+    max-width:1060px;
     width:100%;
     text-align:center;
     margin-bottom:16px;
+  }
+  .layout-row{
+    display:flex;
+    flex-direction:row;
+    flex-wrap:wrap;
+    gap:20px;
+    width:100%;
+    max-width:1060px;
+    justify-content:center;
+    align-items:flex-start;
   }
   header h1{
     color:var(--azul);
@@ -49,8 +59,9 @@
     letter-spacing:.3px;
   }
   .chatbox{
-    width:100%;
+    flex:1 1 460px;
     max-width:520px;
+    width:100%;
     background:#fff;
     border-radius:16px;
     box-shadow:0 4px 24px rgba(3,0,150,0.12);
@@ -145,41 +156,55 @@
     font-size:11px;
     color:#888;
     text-align:center;
-    max-width:520px;
+    max-width:1060px;
   }
-  .curadoria-btn-wrap{
-    width:100%;
+  .analysis-box{
+    flex:1 1 460px;
     max-width:520px;
+    width:100%;
+    background:#fff;
+    border-radius:16px;
+    box-shadow:0 4px 24px rgba(3,0,150,0.12);
+    overflow:hidden;
+    display:flex;
+    flex-direction:column;
+    height:70vh;
+  }
+  .curadoria-body{
+    flex:1;
+    overflow-y:auto;
+    padding:16px 18px;
+    background:#e9ebee;
+  }
+  .curadoria-placeholder{
+    font-size:13.5px;
+    color:#666;
+    line-height:1.55;
+    text-align:center;
+    margin-top:30px;
+    padding:0 10px;
+  }
+  .curadoria-footer{
     display:flex;
     justify-content:center;
-    margin-top:14px;
+    padding:12px;
+    border-top:1px solid #ddd;
+    background:#fff;
   }
   .curadoria-btn{
-    background:#fff;
-    color:var(--azul);
-    border:1.5px solid var(--azul);
+    background:var(--azul);
+    color:#fff;
+    border:none;
     border-radius:20px;
-    padding:9px 18px;
-    font-size:13px;
+    padding:10px 20px;
+    font-size:14px;
     font-weight:600;
     cursor:pointer;
+    width:100%;
   }
   .curadoria-btn:disabled{
     opacity:.5;
     cursor:not-allowed;
-  }
-  .curadoria-panel{
-    width:100%;
-    max-width:520px;
-    background:#fff;
-    border-radius:16px;
-    box-shadow:0 4px 24px rgba(3,0,150,0.12);
-    margin-top:14px;
-    padding:18px 20px;
-    display:none;
-  }
-  .curadoria-panel.show{
-    display:block;
   }
   .curadoria-nota{
     display:inline-flex;
@@ -240,23 +265,32 @@
   <p>Converse como se fosse um lead real. Este é um protótipo funcional, não um mockup.</p>
 </header>
 
-<div class="chatbox">
-  <div class="chat-header">
-    <div class="dot"></div>
-    Rafaela — RV Digital Energia Solar
+<div class="layout-row">
+  <div class="chatbox">
+    <div class="chat-header">
+      <div class="dot"></div>
+      Rafaela — RV Digital Energia Solar
+    </div>
+    <div class="messages" id="messages"></div>
+    <div class="inputbar">
+      <input type="text" id="inputText" placeholder="Digite sua mensagem..." autocomplete="off">
+      <button id="sendBtn">Enviar</button>
+    </div>
   </div>
-  <div class="messages" id="messages"></div>
-  <div class="inputbar">
-    <input type="text" id="inputText" placeholder="Digite sua mensagem..." autocomplete="off">
-    <button id="sendBtn">Enviar</button>
+
+  <div class="analysis-box">
+    <div class="chat-header">
+      <div class="dot"></div>
+      Curadoria — Avaliação em tempo real
+    </div>
+    <div class="curadoria-body" id="curadoriaBody">
+      <div class="curadoria-placeholder">Converse com a Rafaela e clique em "Avaliar atendimento" pra ver aqui a nota, os pontos fortes, os pontos de atenção (com o trecho exato) e sugestões de melhoria — a mesma curadoria usada para comparar com o agente da CIA.</div>
+    </div>
+    <div class="curadoria-footer">
+      <button id="curadoriaBtn" class="curadoria-btn">📋 Avaliar atendimento</button>
+    </div>
   </div>
 </div>
-
-<div class="curadoria-btn-wrap">
-  <button id="curadoriaBtn" class="curadoria-btn">📋 Avaliar atendimento (curadoria)</button>
-</div>
-
-<div class="curadoria-panel" id="curadoriaPanel"></div>
 
 <footer>
   Protótipo interno RV Digital — respostas geradas por IA em tempo real. Não é um fluxo real de produção.
@@ -328,7 +362,7 @@
   addBubble('Olá, tudo bem? 😊 Vi que você chegou por aqui pelos nossos anúncios. Como eu posso te ajudar com energia solar? E como posso te chamar? Ah, e eu sou a Rafaela, assistente virtual da RV Digital!', 'bot');
 
   const curadoriaBtn = document.getElementById('curadoriaBtn');
-  const curadoriaPanel = document.getElementById('curadoriaPanel');
+  const curadoriaBody = document.getElementById('curadoriaBody');
 
   function escapeHtml(s){
     const d = document.createElement('div');
@@ -343,8 +377,7 @@
     }
     curadoriaBtn.disabled = true;
     curadoriaBtn.textContent = 'Analisando...';
-    curadoriaPanel.classList.add('show');
-    curadoriaPanel.innerHTML = '<div class="curadoria-resumo">Analisando a conversa...</div>';
+    curadoriaBody.innerHTML = '<div class="curadoria-placeholder">Analisando a conversa...</div>';
 
     try{
       const resp = await fetch('/api/curadoria', {
@@ -355,11 +388,11 @@
       const data = await resp.json();
 
       if(!resp.ok){
-        curadoriaPanel.innerHTML = '<div class="curadoria-resumo">Erro: ' + escapeHtml(data.error || 'falha desconhecida') + '</div>';
+        curadoriaBody.innerHTML = '<div class="curadoria-resumo">Erro: ' + escapeHtml(data.error || 'falha desconhecida') + '</div>';
         return;
       }
       if(data.erro_parse){
-        curadoriaPanel.innerHTML = '<div class="curadoria-resumo">Não consegui estruturar a análise. Resposta bruta:</div><div class="curadoria-item">' + escapeHtml(data.raw) + '</div>';
+        curadoriaBody.innerHTML = '<div class="curadoria-resumo">Não consegui estruturar a análise. Resposta bruta:</div><div class="curadoria-item">' + escapeHtml(data.raw) + '</div>';
         return;
       }
 
@@ -390,12 +423,12 @@
           out += '<div class="curadoria-item sugestao">' + escapeHtml(s) + '</div>';
         });
       }
-      curadoriaPanel.innerHTML = out || '<div class="curadoria-resumo">Sem dados suficientes pra avaliar ainda.</div>';
+      curadoriaBody.innerHTML = out || '<div class="curadoria-placeholder">Sem dados suficientes pra avaliar ainda.</div>';
     }catch(err){
-      curadoriaPanel.innerHTML = '<div class="curadoria-resumo">Erro de conexão ao avaliar.</div>';
+      curadoriaBody.innerHTML = '<div class="curadoria-resumo">Erro de conexão ao avaliar.</div>';
     }finally{
       curadoriaBtn.disabled = false;
-      curadoriaBtn.textContent = '📋 Avaliar atendimento (curadoria)';
+      curadoriaBtn.textContent = '📋 Avaliar atendimento';
     }
   }
 
