@@ -98,29 +98,6 @@ app.post('/api/chat', async (req, res) => {
 
 app.get('/health', (req, res) => res.json({ ok: true }));
 
-app.get('/api/debug-test', async (req, res) => {
-  try {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) return res.status(500).json({ error: 'sem chave' });
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-5',
-        max_tokens: 200,
-        messages: [{ role: 'user', content: 'Diga apenas: teste ok' }]
-      })
-    });
-    const data = await response.json();
-    res.status(response.status).json({ httpStatus: response.status, ok: response.ok, data });
-  } catch (err) {
-    res.status(500).json({ error: String(err) });
-  }
-});
 
 
 const PORT = process.env.PORT || 3000;
