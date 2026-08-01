@@ -84,8 +84,11 @@ app.post('/api/chat', async (req, res) => {
       return res.status(response.status).json({ error: (data.error && data.error.message) || 'Erro ao consultar a IA.' });
     }
 
-    console.log('ANTHROPIC_RAW_RESPONSE:', JSON.stringify(data));
-    const text = (data.content && data.content[0] && data.content[0].text) || '';
+    const textBlock = Array.isArray(data.content) ? data.content.find(b => b && b.type === 'text') : null;
+    const text = (textBlock && textBlock.text) || '';
+    if (!text) {
+      console.error('Resposta sem bloco de texto:', JSON.stringify(data));
+    }
     res.json({ reply: text });
   } catch (err) {
     console.error('Erro no /api/chat:', err);
