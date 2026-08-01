@@ -162,7 +162,7 @@ app.post('/api/curadoria', async (req, res) => {
       },
       body: JSON.stringify({
         model: 'claude-sonnet-5',
-        max_tokens: 1500,
+        max_tokens: 4096,
         system: CURATOR_SYSTEM_PROMPT,
         messages: [{ role: 'user', content: 'Analise esta conversa entre o lead e a Rafaela:\n\n' + transcript }]
       })
