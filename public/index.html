@@ -147,6 +147,89 @@
     text-align:center;
     max-width:520px;
   }
+  .curadoria-btn-wrap{
+    width:100%;
+    max-width:520px;
+    display:flex;
+    justify-content:center;
+    margin-top:14px;
+  }
+  .curadoria-btn{
+    background:#fff;
+    color:var(--azul);
+    border:1.5px solid var(--azul);
+    border-radius:20px;
+    padding:9px 18px;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+  }
+  .curadoria-btn:disabled{
+    opacity:.5;
+    cursor:not-allowed;
+  }
+  .curadoria-panel{
+    width:100%;
+    max-width:520px;
+    background:#fff;
+    border-radius:16px;
+    box-shadow:0 4px 24px rgba(3,0,150,0.12);
+    margin-top:14px;
+    padding:18px 20px;
+    display:none;
+  }
+  .curadoria-panel.show{
+    display:block;
+  }
+  .curadoria-nota{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    background:var(--azul);
+    color:#fff;
+    font-weight:700;
+    font-size:15px;
+    padding:6px 14px;
+    border-radius:999px;
+    margin-bottom:10px;
+  }
+  .curadoria-section-title{
+    font-size:13px;
+    font-weight:700;
+    color:var(--azul);
+    margin:14px 0 6px 0;
+  }
+  .curadoria-item{
+    font-size:13px;
+    line-height:1.45;
+    margin-bottom:8px;
+    padding:8px 10px;
+    border-radius:8px;
+  }
+  .curadoria-item.forte{
+    background:#E8F8EE;
+    border-left:3px solid #22a35e;
+  }
+  .curadoria-item.atencao{
+    background:#FBD9D9;
+    border-left:3px solid #C81E1E;
+  }
+  .curadoria-item.sugestao{
+    background:#FFF4DE;
+    border-left:3px solid var(--laranja);
+  }
+  .curadoria-item .trecho{
+    font-style:italic;
+    color:#444;
+    display:block;
+    margin-bottom:3px;
+  }
+  .curadoria-resumo{
+    font-size:13.5px;
+    color:#333;
+    margin-bottom:6px;
+    line-height:1.5;
+  }
 </style>
 </head>
 <body>
@@ -168,6 +251,12 @@
     <button id="sendBtn">Enviar</button>
   </div>
 </div>
+
+<div class="curadoria-btn-wrap">
+  <button id="curadoriaBtn" class="curadoria-btn">📋 Avaliar atendimento (curadoria)</button>
+</div>
+
+<div class="curadoria-panel" id="curadoriaPanel"></div>
 
 <footer>
   Protótipo interno RV Digital — respostas geradas por IA em tempo real. Não é um fluxo real de produção.
@@ -237,6 +326,80 @@
   });
 
   addBubble('Olá, tudo bem? 😊 Vi que você chegou por aqui pelos nossos anúncios. Como eu posso te ajudar com energia solar? E como posso te chamar? Ah, e eu sou a Rafaela, assistente virtual da RV Digital!', 'bot');
+
+  const curadoriaBtn = document.getElementById('curadoriaBtn');
+  const curadoriaPanel = document.getElementById('curadoriaPanel');
+
+  function escapeHtml(s){
+    const d = document.createElement('div');
+    d.textContent = s == null ? '' : String(s);
+    return d.innerHTML;
+  }
+
+  async function avaliarConversa(){
+    if(history.length === 0){
+      alert('Converse um pouco antes de avaliar.');
+      return;
+    }
+    curadoriaBtn.disabled = true;
+    curadoriaBtn.textContent = 'Analisando...';
+    curadoriaPanel.classList.add('show');
+    curadoriaPanel.innerHTML = '<div class="curadoria-resumo">Analisando a conversa...</div>';
+
+    try{
+      const resp = await fetch('/api/curadoria', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ messages: history })
+      });
+      const data = await resp.json();
+
+      if(!resp.ok){
+        curadoriaPanel.innerHTML = '<div class="curadoria-resumo">Erro: ' + escapeHtml(data.error || 'falha desconhecida') + '</div>';
+        return;
+      }
+      if(data.erro_parse){
+        curadoriaPanel.innerHTML = '<div class="curadoria-resumo">Não consegui estruturar a análise. Resposta bruta:</div><div class="curadoria-item">' + escapeHtml(data.raw) + '</div>';
+        return;
+      }
+
+      let out = '';
+      if(data.nota !== null && data.nota !== undefined){
+        out += '<div class="curadoria-nota">Nota: ' + escapeHtml(data.nota) + ' / 10</div>';
+      }
+      if(data.resumo){
+        out += '<div class="curadoria-resumo">' + escapeHtml(data.resumo) + '</div>';
+      }
+      if(Array.isArray(data.pontos_fortes) && data.pontos_fortes.length){
+        out += '<div class="curadoria-section-title">Pontos fortes</div>';
+        data.pontos_fortes.forEach(function(p){
+          out += '<div class="curadoria-item forte">' + escapeHtml(p) + '</div>';
+        });
+      }
+      out += '<div class="curadoria-section-title">Pontos de atenção</div>';
+      if(Array.isArray(data.pontos_de_atencao) && data.pontos_de_atencao.length){
+        data.pontos_de_atencao.forEach(function(p){
+          out += '<div class="curadoria-item atencao"><span class="trecho">"' + escapeHtml(p.trecho) + '"</span>' + escapeHtml(p.problema) + '</div>';
+        });
+      } else {
+        out += '<div class="curadoria-item forte">Nenhum problema identificado até aqui.</div>';
+      }
+      if(Array.isArray(data.sugestoes) && data.sugestoes.length){
+        out += '<div class="curadoria-section-title">Sugestões de melhoria</div>';
+        data.sugestoes.forEach(function(s){
+          out += '<div class="curadoria-item sugestao">' + escapeHtml(s) + '</div>';
+        });
+      }
+      curadoriaPanel.innerHTML = out || '<div class="curadoria-resumo">Sem dados suficientes pra avaliar ainda.</div>';
+    }catch(err){
+      curadoriaPanel.innerHTML = '<div class="curadoria-resumo">Erro de conexão ao avaliar.</div>';
+    }finally{
+      curadoriaBtn.disabled = false;
+      curadoriaBtn.textContent = '📋 Avaliar atendimento (curadoria)';
+    }
+  }
+
+  curadoriaBtn.addEventListener('click', avaliarConversa);
 </script>
 
 </body>

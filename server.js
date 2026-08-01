@@ -119,6 +119,80 @@ app.post('/api/chat', async (req, res) => {
 
 app.get('/health', (req, res) => res.json({ ok: true }));
 
+const CURATOR_SYSTEM_PROMPT = `Você é um curador de qualidade (QA) especializado em avaliar conversas de atendimento de energia solar por assinatura da RV Digital. Você NÃO participa da conversa — sua função é analisar, depois que ela aconteceu, se o agente seguiu corretamente as regras abaixo.
+
+Regras que o agente deveria seguir nesta conversa:
+"""
+${SYSTEM_PROMPT}
+"""
+
+Analise a conversa fornecida pelo usuário e responda SOMENTE em JSON válido, sem markdown, sem texto fora do JSON, neste formato exato:
+{
+  "nota": (número de 0 a 10, pode usar meio ponto),
+  "resumo": "1-2 frases resumindo a qualidade geral do atendimento nesta conversa específica",
+  "pontos_fortes": ["ponto forte 1", "ponto forte 2"],
+  "pontos_de_atencao": [
+    { "trecho": "citação exata (ou bem próxima) da mensagem do agente com o problema", "problema": "explicação objetiva do que está errado e qual regra foi violada" }
+  ],
+  "sugestoes": ["sugestão concreta de melhoria 1", "sugestão concreta de melhoria 2"]
+}
+Seja rigoroso e específico. Se a conversa foi curta demais pra avaliar algo relevante, diga isso no "resumo" e deixe nota null. Se não houver problemas, "pontos_de_atencao" deve ser um array vazio - não invente problemas que não existem.`;
+
+app.post('/api/curadoria', async (req, res) => {
+  try {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: 'ANTHROPIC_API_KEY não configurada no servidor.' });
+    }
+    const { messages } = req.body;
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return res.status(400).json({ error: 'Nenhuma conversa para analisar ainda.' });
+    }
+
+    const transcript = messages
+      .map(m => (m.role === 'user' ? 'LEAD: ' : 'AGENTE (Rafaela): ') + m.content)
+      .join('\n\n');
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-5',
+        max_tokens: 1500,
+        system: CURATOR_SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: 'Analise esta conversa entre o lead e a Rafaela:\n\n' + transcript }]
+      })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('Erro da API Anthropic (curadoria):', data);
+      return res.status(response.status).json({ error: (data.error && data.error.message) || 'Erro ao consultar a IA.' });
+    }
+
+    const textBlock = Array.isArray(data.content) ? data.content.find(b => b && b.type === 'text') : null;
+    let raw = (textBlock && textBlock.text) || '';
+    raw = raw.trim().replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '').trim();
+
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (e) {
+      parsed = { erro_parse: true, raw };
+    }
+    res.json(parsed);
+  } catch (err) {
+    console.error('Erro no /api/curadoria:', err);
+    res.status(500).json({ error: 'Erro interno no servidor.' });
+  }
+});
+
+
 
 
 const PORT = process.env.PORT || 3000;
